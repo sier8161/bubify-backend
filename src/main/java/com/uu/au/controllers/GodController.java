@@ -8,6 +8,7 @@ import com.uu.au.enums.Role;
 import com.uu.au.enums.errors.AuthErrors;
 import com.uu.au.enums.errors.CourseErrors;
 import com.uu.au.enums.errors.UserErrors;
+import com.uu.au.enums.errors.RoomErrors;
 import com.uu.au.models.*;
 import com.uu.au.repository.*;
 import net.coobird.thumbnailator.Thumbnails;
@@ -21,6 +22,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.CacheControl;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.util.ConcurrentReferenceHashMap;
@@ -83,6 +85,8 @@ class GodController {
     HelpRequestController helpRequestController;
     @Autowired
     EnrolmentRepository enrolmentRepository;
+    @Autowired
+    RoomRepository roomRepository;
     @Autowired
     private WebSocketController webSocketController;
 
@@ -453,6 +457,47 @@ class GodController {
             return "Something went wrong in group grading";
         }
     }
+
+    @PreAuthorize("hasAuthority('Teacher')")
+    @PostMapping("/course/room")
+    public @ResponseBody Json.Room createRoom(@RequestBody Json.NewRoom roomData) {
+        var newRoom = roomData.getRoom();
+        if (newRoom.length() > 0) {
+            try {
+                var room = Room.builder().name(newRoom).build();
+                roomRepository.save(room);
+            } catch (Exception e) {
+                throw RoomErrors.roomAlreadyDefined();
+            }
+        }
+        return getRooms();
+    }
+
+    public Json.Room getRooms() {
+        var roomList = roomRepository.findAll().stream().map(r -> r.getName()).collect(Collectors.toList());
+        return Json.Room.builder().rooms(roomList).build();
+    }
+
+    @GetMapping("/course/room")
+    public ResponseEntity<Json.Room> getRoomsEndpoint() {
+        return ResponseEntity.ok()
+        .cacheControl(CacheControl.maxAge(1, java.util.concurrent.TimeUnit.DAYS))
+        .body(getRooms());
+    }
+
+    @PreAuthorize("hasAuthority('Teacher')")
+    @DeleteMapping("/course/room/{name}")
+    public Json.Room getRooms(@PathVariable String name) {
+        if (name.length() > 0) {
+            var roomList = roomRepository.findByName(name);
+            if (!roomList.isPresent()) {
+                throw RoomErrors.roomNotDefined();
+            }
+            roomRepository.delete(roomList.get());
+        }
+        return getRooms();
+    }
+
 
     @PreAuthorize("hasAuthority('Junior_TA') or hasAuthority('Senior_TA') or hasAuthority('Teacher')")
     @GetMapping("/explore/student/{id}")

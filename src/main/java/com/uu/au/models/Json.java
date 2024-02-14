@@ -366,4 +366,17 @@ public class Json {
     public static class GithubUser {
         private String login;
     }
+    @Data
+    @Builder
+    public static class Room {
+        private List<String> rooms;
+    }
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class NewRoom {
+        private String room;
+    }
+
 }
